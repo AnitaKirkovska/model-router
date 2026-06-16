@@ -88,4 +88,10 @@ export interface RouterConfig {
   tierBounds?: { cheap: number; mid: number };
   /** Require tool-calling support when auto-picking (default true). */
   requireTools?: boolean;
+  /**
+   * Substrings; any model id containing one is dropped from discovery.
+   * Use for pulled/deprecated models the catalog still lists (e.g. "fable").
+   * OpenRouter's own "~"-prefixed deprecated variants are always excluded.
+   */
+  excludePatterns?: string[];
 }

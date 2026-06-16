@@ -65,6 +65,28 @@ try {
     if (p.proprietary) check(`${p.tier}: proprietary pick is closed`, p.proprietary.isOpen === false);
     if (p.mix) console.log(`     ${p.tier}: open=${p.open?.id ?? "—"} | prop=${p.proprietary?.id ?? "—"} | mix=${p.mix.id}`);
   }
+
+  console.log("\n[6] excludePatterns drops pulled models");
+  const opEx = new OpenRouterProvider({ config: { excludePatterns: ["fable"] } });
+  const exModels = await opEx.listModels();
+  check("no excluded id survives", exModels.every((m) => !m.id.includes("fable")), exModels.find((m) => m.id.includes("fable"))?.id ?? "ok");
+  check("'~'-prefixed always dropped", models.every((m) => !m.id.startsWith("~")));
+
+  console.log("\n[7] premium open falls back to best-open-overall");
+  const premPick = picks.find((p) => p.tier === "premium")!;
+  // No open-weight model is priced in the premium tier today, so the fallback must engage.
+  check("premium open is filled", !!premPick.open, "premium open empty");
+  check("premium open is flagged cross-tier", premPick.openFromLowerTier === true, `flag=${premPick.openFromLowerTier}`);
+  check("fallback open is not a :free endpoint", !premPick.open!.id.endsWith(":free"), premPick.open!.id);
+
+  console.log("\n[8] same-day siblings: cheaper base beats pricier latency SKU");
+  const { rankModels } = await import("../source/core/recommend.js");
+  const day = 1_700_000_000;
+  const ranked = rankModels([
+    { id: "anthropic/claude-x-fast", isOpen: false, toolCapable: true, promptPrice: 0.00001, created: day + 30, contextLength: 1_000_000, tier: "premium" } as any,
+    { id: "anthropic/claude-x", isOpen: false, toolCapable: true, promptPrice: 0.000005, created: day, contextLength: 1_000_000, tier: "premium" } as any,
+  ]);
+  check("base (cheaper, same day) ranks first", ranked[0].id === "anthropic/claude-x", ranked[0].id);
 } catch (e: any) {
   fail++;
   console.log(`  ✗ openrouter live test threw: ${e.message}`);

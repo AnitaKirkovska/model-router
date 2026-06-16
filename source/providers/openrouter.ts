@@ -36,7 +36,7 @@ export class OpenRouterProvider implements ModelProvider {
     this.apiKey = opts.apiKey;
     this.cfg = {
       provider: "openrouter",
-      tierBounds: { cheap: 0.0000005, mid: 0.000005 }, // USD/token boundaries
+      tierBounds: { cheap: 0.0000005, mid: 0.000003 }, // USD/token boundaries (premium = >$3/M, catches flagship models like Opus at $5/M)
       requireTools: true,
       ...opts.config,
     };
@@ -74,6 +74,11 @@ export class OpenRouterProvider implements ModelProvider {
       })
       // Drop models with unknown or sentinel (-1) pricing — they can't be tiered.
       .filter((m) => m.promptPrice !== undefined && m.promptPrice >= 0)
+      // Drop "~"-prefixed ids — OpenRouter's marker for deprecated/pulled variants
+      // (e.g. ~anthropic/claude-fable-latest). Not part of the standard catalog.
+      .filter((m) => !m.id.startsWith("~"))
+      // Drop any user-configured pulled/deprecated models (substring match).
+      .filter((m) => !(this.cfg.excludePatterns ?? []).some((p) => m.id.includes(p)))
       .map((m) => ({ ...m, tier: this.priceTier(m.promptPrice!) }));
 
     this.cache = models;

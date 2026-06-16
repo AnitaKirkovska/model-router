@@ -10,10 +10,11 @@ import type { ModelInfo, Tier } from "./types.js";
  * Lower number = stronger reputation.
  */
 const FAMILY_RANK: Record<string, number> = {
-  // S-tier frontier labs
+  // S-tier frontier labs + current flagship-grade open models
   anthropic: 0,
   openai: 0,
   google: 0,
+  minimax: 0, // MiniMax M3 — flagship-grade open, strongest open option for premium work
   "x-ai": 1,
   deepseek: 1,
   // A-tier — strong open + proprietary
@@ -22,7 +23,6 @@ const FAMILY_RANK: Record<string, number> = {
   mistralai: 2,
   moonshotai: 2,
   "z-ai": 2,
-  minimax: 2,
   nvidia: 3,
   cohere: 3,
   amazon: 3,
@@ -49,11 +49,16 @@ function reputation(id: string): number {
  * Rank models within a pool. Best first.
  * Order: reputation (asc) → recency (desc) → context length (desc) → price (asc).
  */
+const DAY = 86400; // seconds — bucket recency by day so same-day sibling SKUs
+                   // (e.g. opus-4.8 vs opus-4.8-fast) fall through to the price
+                   // tiebreak, where the cheaper base model wins over a pricier
+                   // latency variant.
+
 export function rankModels(pool: ModelInfo[]): ModelInfo[] {
   return [...pool].sort((a, b) => {
     const rep = reputation(a.id) - reputation(b.id);
     if (rep !== 0) return rep;
-    const rec = (b.created ?? 0) - (a.created ?? 0);
+    const rec = Math.floor((b.created ?? 0) / DAY) - Math.floor((a.created ?? 0) / DAY);
     if (rec !== 0) return rec;
     const ctx = (b.contextLength ?? 0) - (a.contextLength ?? 0);
     if (ctx !== 0) return ctx;
@@ -66,6 +71,8 @@ export interface TierPicks {
   open?: ModelInfo;
   proprietary?: ModelInfo;
   mix?: ModelInfo; // best overall, regardless of license
+  /** True if `open` was filled from a lower tier (no open model priced in this tier). */
+  openFromLowerTier?: boolean;
 }
 
 /**
@@ -79,16 +86,25 @@ export function recommend(
   const requireTools = opts.requireTools ?? true;
   const tiers: Tier[] = ["cheap", "mid", "premium"];
 
+  const toolFiltered = models.filter((m) => (requireTools ? m.toolCapable : true));
+  // Best open-weight model overall — used as a fallback when a tier has none
+  // priced within it (open weights currently cap out at mid-tier pricing, so
+  // premium would otherwise show "none"). Free endpoints (":free") are excluded
+  // here: they're rate-limited hobby tiers, not a serious premium-grade pick.
+  const bestOpenOverall = rankModels(
+    toolFiltered.filter((m) => m.isOpen && !m.id.endsWith(":free")),
+  )[0];
+
   return tiers.map((tier) => {
-    const inTier = models
-      .filter((m) => m.tier === tier)
-      .filter((m) => (requireTools ? m.toolCapable : true));
-    const ranked = rankModels(inTier);
+    const ranked = rankModels(toolFiltered.filter((m) => m.tier === tier));
+    const openInTier = ranked.find((m) => m.isOpen);
+    const open = openInTier ?? bestOpenOverall;
     return {
       tier,
-      open: ranked.find((m) => m.isOpen),
+      open,
       proprietary: ranked.find((m) => !m.isOpen),
       mix: ranked[0],
+      openFromLowerTier: !openInTier && !!bestOpenOverall,
     };
   });
 }

@@ -81,7 +81,8 @@ async function cmdRecommend(args: string[]) {
   console.log(`${C.dim}ranked by family reputation → recency → context. heuristic, not a live benchmark.${C.reset}`);
   for (const p of shown) {
     console.log(`\n${C.b}━━ ${p.tier.toUpperCase()} ━━${C.reset}`);
-    console.log(`  ${C.g}open${C.reset}        ${p.open ? fmtModel(p.open) : C.dim + "none" + C.reset}`);
+    const openTag = p.openFromLowerTier ? ` ${C.dim}(best open overall — none priced in this tier)${C.reset}` : "";
+    console.log(`  ${C.g}open${C.reset}        ${p.open ? fmtModel(p.open) + openTag : C.dim + "none" + C.reset}`);
     console.log(`  ${C.y}proprietary${C.reset} ${p.proprietary ? fmtModel(p.proprietary) : C.dim + "none" + C.reset}`);
     console.log(`  ${C.b}mix (best)${C.reset}  ${p.mix ? fmtModel(p.mix) : C.dim + "none" + C.reset}`);
   }
@@ -114,7 +115,8 @@ async function cmdSetup(args: string[]) {
 
   if (provFlag === "openrouter") {
     cfg.provider = "openrouter";
-    cfg.tierBounds = cfg.tierBounds ?? { cheap: 0.0000005, mid: 0.000005 };
+    // Refresh to current default bounds (premium = >$3/M, catches flagship models).
+    cfg.tierBounds = { cheap: 0.0000005, mid: 0.000003 };
     cfg.requireTools = cfg.requireTools ?? true;
     saveConfig(cfg);
     const key = getApiKey();

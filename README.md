@@ -53,7 +53,7 @@ bun run source/cli.ts setup --provider=openrouter
 export OPENROUTER_API_KEY=sk-or-...
 bun run source/cli.ts models mid       # browse 80+ mid-tier tool-capable models
 bun run source/cli.ts route "write a full sector comparison report"
-# → category: deep | modelId: ~anthropic/claude-fable-latest | tier: premium
+# → category: deep | modelId: anthropic/claude-opus-4.8 | tier: premium
 ```
 
 ## Package API
@@ -146,14 +146,25 @@ Models are bucketed by prompt price per token:
 | Tier      | Prompt price cap      | Notes                                    |
 |-----------|-----------------------|------------------------------------------|
 | `cheap`   | ≤ $0.50/M tokens      | Fast models, free tiers included         |
-| `mid`     | ≤ $5.00/M tokens      | Balanced quality/cost                    |
-| `premium` | > $5.00/M tokens      | Flagship models                          |
+| `mid`     | ≤ $3.00/M tokens      | Balanced quality/cost                    |
+| `premium` | > $3.00/M tokens      | Flagship models (e.g. Opus at $5/M)      |
 
 > **Note:** price is not a proxy for capability. Use `modelOverrides` to pin specific models per category rather than relying on auto-pick.
 
 Customize bounds in `~/.model-router/config.json`:
 ```json
-{ "tierBounds": { "cheap": 0.0000005, "mid": 0.000005 } }
+{ "tierBounds": { "cheap": 0.0000005, "mid": 0.000003 } }
+```
+
+### Excluding pulled / deprecated models
+
+OpenRouter still lists some deprecated models. Two layers drop them from discovery:
+
+- **`~`-prefixed ids** (OpenRouter's own deprecation marker) are always excluded.
+- **`excludePatterns`** — a list of substrings you control. Any model id containing one is dropped.
+
+```json
+{ "excludePatterns": ["fable"] }
 ```
 
 ## Best-picks (`recommend`)
@@ -172,7 +183,7 @@ Open vs proprietary is determined by the presence of a Hugging Face id in the Op
 2. **recency** — newer release wins
 3. **context length**, then **price**
 
-> Open-weight models currently cap out at mid-tier pricing — there are no open tool-capable models above ~$5/M tokens, so the premium tier's "open" slot is typically empty. That's accurate, not a gap.
+> Open-weight models currently cap out at mid-tier pricing — no open tool-capable model is priced in the premium tier. Rather than show "none", the premium **open** slot falls back to the best open-weight model overall (excluding `:free` rate-limited endpoints) and is tagged `(best open overall — none priced in this tier)`.
 
 ## Tests
 
