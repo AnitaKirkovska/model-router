@@ -36,6 +36,7 @@ bun run source/cli.ts <command>
 |---------|-------------|
 | `setup [--provider=openrouter\|static]` | Configure provider |
 | `models [cheap\|mid\|premium]` | List discovered models by tier (openrouter only) |
+| `recommend [cheap\|mid\|premium] [--json]` | Best open / proprietary / mix model per tier (openrouter only) |
 | `classify <message>` | Classify a message without resolving a model |
 | `route <message> [--apply]` | Classify + resolve; `--apply` pins the session in Vellum |
 | `config` | Print current config |
@@ -155,6 +156,24 @@ Customize bounds in `~/.model-router/config.json`:
 { "tierBounds": { "cheap": 0.0000005, "mid": 0.000005 } }
 ```
 
+## Best-picks (`recommend`)
+
+`recommend` surfaces, for each price tier, the standout **open-weight**, **proprietary**, and **mix** (best overall) tool-capable model:
+
+```bash
+bun run source/cli.ts recommend          # all tiers
+bun run source/cli.ts recommend mid      # one tier
+bun run source/cli.ts recommend --json   # machine-readable
+```
+
+Open vs proprietary is determined by the presence of a Hugging Face id in the OpenRouter metadata. Ranking is a **heuristic, not a live benchmark**: models are ordered by
+
+1. **family reputation** — hand-curated knowledge of which orgs ship strong agentic models (Anthropic / OpenAI / Google / xAI / DeepSeek at the top)
+2. **recency** — newer release wins
+3. **context length**, then **price**
+
+> Open-weight models currently cap out at mid-tier pricing — there are no open tool-capable models above ~$5/M tokens, so the premium tier's "open" slot is typically empty. That's accurate, not a gap.
+
 ## Tests
 
 ```bash
@@ -171,6 +190,7 @@ source/
   core/
     types.ts          category, tier, provider/adapter interfaces, RouteDecision
     classifier.ts     keyword + heuristic message classifier
+    recommend.ts      best open/proprietary/mix picks per tier (family-reputation ranking)
     router.ts         Router class — ties provider + adapter together
   providers/
     openrouter.ts     live OpenRouter model discovery + tier bucketing

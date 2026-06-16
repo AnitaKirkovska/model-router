@@ -4,6 +4,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { Router } from "./core/router.js";
 import { classify } from "./core/classifier.js";
+import { recommend } from "./core/recommend.js";
 import { OpenRouterProvider } from "./providers/openrouter.js";
 import { StaticProvider, VELLUM_PROFILE_MAP } from "./providers/static.js";
 import { VellumAdapter } from "./adapters/vellum.js";
@@ -42,12 +43,8 @@ function fmtPrice(p?: number): string {
 }
 
 async function cmdModels(args: string[]) {
+  // Discovery always queries OpenRouter — independent of the routing provider.
   const cfg = loadConfig();
-  if (cfg.provider !== "openrouter") {
-    console.log("models discovery only applies to the openrouter provider.");
-    console.log(`current provider: ${cfg.provider}`);
-    return;
-  }
   const prov = new OpenRouterProvider({ apiKey: getApiKey(), config: cfg });
   const all = await prov.listModels();
   const tierFilter = args[0] as Tier | undefined;
@@ -62,6 +59,33 @@ async function cmdModels(args: string[]) {
     if (inTier.length > 10) console.log(`  ${C.dim}… and ${inTier.length - 10} more${C.reset}`);
   }
   console.log(`\n${C.dim}total tiered models: ${all.length}${C.reset}`);
+}
+
+function fmtModel(m: { id: string; name: string; promptPrice?: number; contextLength?: number }): string {
+  return `${C.c}${m.id}${C.reset}\n      ${C.dim}${m.name} · ${fmtPrice(m.promptPrice)} in · ${((m.contextLength ?? 0) / 1000).toFixed(0)}k ctx${C.reset}`;
+}
+
+async function cmdRecommend(args: string[]) {
+  // Discovery always queries OpenRouter — independent of the routing provider.
+  const cfg = loadConfig();
+  const prov = new OpenRouterProvider({ apiKey: getApiKey(), config: cfg });
+  const all = await prov.listModels();
+  const picks = recommend(all, { requireTools: cfg.requireTools });
+  const tierFilter = args[0] as Tier | undefined;
+  const shown = tierFilter ? picks.filter((p) => p.tier === tierFilter) : picks;
+
+  const json = args.includes("--json");
+  if (json) { console.log(JSON.stringify(shown, null, 2)); return; }
+
+  console.log(`\n${C.b}best tool-capable models per tier${C.reset}`);
+  console.log(`${C.dim}ranked by family reputation → recency → context. heuristic, not a live benchmark.${C.reset}`);
+  for (const p of shown) {
+    console.log(`\n${C.b}━━ ${p.tier.toUpperCase()} ━━${C.reset}`);
+    console.log(`  ${C.g}open${C.reset}        ${p.open ? fmtModel(p.open) : C.dim + "none" + C.reset}`);
+    console.log(`  ${C.y}proprietary${C.reset} ${p.proprietary ? fmtModel(p.proprietary) : C.dim + "none" + C.reset}`);
+    console.log(`  ${C.b}mix (best)${C.reset}  ${p.mix ? fmtModel(p.mix) : C.dim + "none" + C.reset}`);
+  }
+  console.log("");
 }
 
 async function cmdClassify(args: string[]) {
@@ -129,6 +153,7 @@ function help() {
 usage:
   model-router setup [--provider=openrouter|static]   configure provider
   model-router models [cheap|mid|premium]              list discovered models by tier (openrouter)
+  model-router recommend [cheap|mid|premium] [--json]  best open/proprietary/mix model per tier (openrouter)
   model-router classify <message>                      classify a message only
   model-router route <message> [--apply]               classify + resolve a model (--apply pins it in Vellum)
   model-router config                                  print current config
@@ -144,6 +169,7 @@ const run = async () => {
   switch (cmd) {
     case "setup": return cmdSetup(rest);
     case "models": return cmdModels(rest);
+    case "recommend": return cmdRecommend(rest);
     case "classify": return cmdClassify(rest);
     case "route": return cmdRoute(rest);
     case "config": return cmdConfig();

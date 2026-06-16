@@ -27,6 +27,10 @@ export interface ModelInfo {
   contextLength?: number;
   /** Whether the model supports tool/function calling. */
   toolCapable?: boolean;
+  /** True if open-weight (has a Hugging Face id); false if proprietary. */
+  isOpen?: boolean;
+  /** Unix timestamp the model was published, if known (recency signal). */
+  created?: number;
   /** Tier this model was bucketed into, if computed. */
   tier?: Tier;
 }

@@ -54,6 +54,17 @@ try {
   const d = await router.decide("write a detailed comparison report of two stocks");
   check("decision has modelId + provider", !!d.modelId && d.provider === "openrouter", JSON.stringify(d));
   check("not applied (no adapter)", true);
+
+  console.log("\n[5] recommender (best open/proprietary/mix per tier)");
+  const { recommend } = await import("../source/core/recommend.js");
+  const picks = recommend(models, { requireTools: true });
+  check("returns all three tiers", picks.length === 3, `got ${picks.length}`);
+  for (const p of picks) {
+    check(`${p.tier}: has a mix pick`, !!p.mix, "no mix");
+    if (p.open) check(`${p.tier}: open pick is open-weight`, p.open.isOpen === true);
+    if (p.proprietary) check(`${p.tier}: proprietary pick is closed`, p.proprietary.isOpen === false);
+    if (p.mix) console.log(`     ${p.tier}: open=${p.open?.id ?? "—"} | prop=${p.proprietary?.id ?? "—"} | mix=${p.mix.id}`);
+  }
 } catch (e: any) {
   fail++;
   console.log(`  ✗ openrouter live test threw: ${e.message}`);

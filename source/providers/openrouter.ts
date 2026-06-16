@@ -13,6 +13,8 @@ const MODELS_URL = "https://openrouter.ai/api/v1/models";
 interface ORModel {
   id: string;
   name: string;
+  created?: number;
+  hugging_face_id?: string | null;
   context_length: number | null;
   pricing: { prompt: string; completion: string };
   supported_parameters?: string[];
@@ -65,6 +67,8 @@ export class OpenRouterProvider implements ModelProvider {
           completionPrice: Number.isFinite(completionPrice) ? completionPrice : undefined,
           contextLength: m.context_length ?? undefined,
           toolCapable,
+          isOpen: !!m.hugging_face_id,
+          created: m.created,
           tier: undefined as Tier | undefined,
         } satisfies ModelInfo;
       })
