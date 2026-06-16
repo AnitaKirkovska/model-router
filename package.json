@@ -1,0 +1,35 @@
+{
+  "name": "model-router",
+  "version": "0.1.0",
+  "description": "Extensible, harness-agnostic LLM task router. Classifies messages by task type and routes to the best model — pluggable providers (OpenRouter live discovery, static profiles) and adapters (Vellum, custom).",
+  "type": "module",
+  "main": "./source/index.ts",
+  "bin": {
+    "model-router": "./source/cli.ts"
+  },
+  "scripts": {
+    "test": "bun run ./source/test.ts",
+    "install:vellum": "bash ./source/vellum/install.sh"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "peerDependenciesInfo": {
+    "bun": {
+      "optional": false
+    }
+  },
+  "keywords": [
+    "llm",
+    "model-router",
+    "openrouter",
+    "vellum",
+    "task-routing",
+    "ai-routing"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnitaKirkovska/model-router"
+  }
+}
