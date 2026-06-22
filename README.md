@@ -46,7 +46,7 @@ bun run source/cli.ts <command>
 ```bash
 # Default: Vellum static profiles
 bun run source/cli.ts route "show me NVDA" --apply
-# → category: research | profile: balanced | applied: true
+# → category: research | profile: claude-4.8-high | applied: true
 
 # Switch to OpenRouter (live model discovery)
 bun run source/cli.ts setup --provider=openrouter
@@ -73,7 +73,7 @@ const router = new Router(
   new VellumAdapter({ ttl: "never" }),
 );
 const result = await router.route("research AI power infrastructure companies");
-// { category: "research", modelId: "balanced", applied: true, ... }
+// { category: "research", modelId: "claude-4.8-high", applied: true, ... }
 
 // OpenRouter — live model discovery + explicit overrides
 const orRouter = new Router(
@@ -109,6 +109,19 @@ This copies:
 - `x-vellum-principal-type` — principal type (`actor` | `service`)
 
 The route reads these for traceability but does not re-validate them.
+
+## Pre-model-call hook (automatic routing)
+
+The bundled `hooks/pre-model-call.ts` runs **before every user-facing turn** and writes the chosen profile key directly to `ctx.modelProfile`. No CLI call, no session churn — the platform just sees the chosen profile for the next provider call.
+
+It classifies the latest user message (`chat | research | deep`), then resolves the strongest **enabled** profile for that category using a two-layer match:
+
+1. **Capability hints** — match profile labels, names, or model ids by keyword (`speed`/`fast`/`sonnet`/`haiku` for chat; `frontier`/`fable`/`opus` for deep; `quality`/`glm`/`gpt` for research).
+2. **Key fallbacks** — well-known profile keys (`cost-optimized`, `balanced`, `quality-optimized`, `auto`).
+
+The first enabled match wins. The hints are written against Vellum's profile inventory (Speed / Quality / Frontier labels, GLM and Opus model ids) but fall back gracefully on any workspace: if nothing matches, the hook no-ops and the platform default runs unchanged.
+
+Only `mainAgent` calls are routed. Background / utility calls are left alone so internal tooling keeps using whatever profile the platform chose.
 
 ## Extending
 

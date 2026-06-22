@@ -28,9 +28,11 @@ for (const [msg, expected] of cases) {
 console.log("\n[2] static provider + vellum map");
 const sp = new StaticProvider(VELLUM_PROFILE_MAP);
 const r1 = await sp.resolve("chat");
-check("chat → cost-optimized", r1.modelId === "cost-optimized", r1.modelId);
-const r2 = await sp.resolve("deep");
-check("deep → quality-optimized", r2.modelId === "quality-optimized", r2.modelId);
+check("chat → notch-fast", r1.modelId === "notch-fast", r1.modelId);
+const r2 = await sp.resolve("research");
+check("research → claude-4.8-high", r2.modelId === "claude-4.8-high", r2.modelId);
+const r3 = await sp.resolve("deep");
+check("deep → claude-fable-5-high", r3.modelId === "claude-fable-5-high", r3.modelId);
 
 console.log("\n[3] openrouter provider (live API)");
 try {

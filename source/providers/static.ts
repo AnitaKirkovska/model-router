@@ -19,9 +19,21 @@ export class StaticProvider implements ModelProvider {
   }
 }
 
-/** Vellum's built-in profiles, mapped to categories. A sensible default. */
+/**
+ * Vellum's current profiles, mapped to categories.
+ *
+ * Profile inventory rotates (Quality re-pointed to GLM 5.2 on Jun 22 2026,
+ * a new Frontier profile added for Opus and Fable). These keys track the
+ * live workspace config:
+ *   chat     → notch-fast (Sonnet, snappy)        fallback cost-optimized
+ *   research → claude-4.8-high (Quality-Claude)  fallback balanced
+ *   deep     → claude-fable-5-high (Frontier)    fallback quality-optimized
+ *
+ * The hook resolves the first *enabled* key per category, so a disabled
+ * profile simply falls through to the next entry instead of breaking.
+ */
 export const VELLUM_PROFILE_MAP: Record<Category, string> = {
-  chat: "cost-optimized",
-  research: "balanced",
-  deep: "quality-optimized",
+  chat: "notch-fast",
+  research: "claude-4.8-high",
+  deep: "claude-fable-5-high",
 };

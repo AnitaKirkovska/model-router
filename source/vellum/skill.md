@@ -15,11 +15,13 @@ metadata:
 
 Route each conversation to the right model before responding.
 
-| Category   | Profile (static/Vellum) | Use when                                          |
-|------------|-------------------------|---------------------------------------------------|
-| `chat`     | cost-optimized          | Quick questions, admin, casual, simple Y/N        |
-| `research` | balanced                | Stock lookups, research, web search, analysis     |
-| `deep`     | quality-optimized       | Full reports, complex code, in-depth comparisons  |
+| Category   | Profile key            | Model              | Use when                                         |
+|------------|------------------------|--------------------|--------------------------------------------------|
+| `chat`     | notch-fast             | Sonnet (fast)      | Quick questions, admin, casual, simple Y/N       |
+| `research` | claude-4.8-high        | Quality-Claude     | Lookups, research, web search, analysis          |
+| `deep`     | claude-fable-5-high    | Frontier (Fable)   | Full reports, complex code, in-depth comparisons |
+
+Profile keys are resolved in order of preference. If a profile is disabled the next fallback fires automatically. Routing happens entirely from the classifier — never from personal profile names or private workspace config.
 
 With the openrouter provider, any of 300+ live models can be used instead.
 
