@@ -1,7 +1,7 @@
 {
   "name": "model-router",
   "version": "0.1.0",
-  "description": "Extensible, harness-agnostic LLM task router. Classifies messages by task type and routes to the best model \u2014 pluggable providers (OpenRouter live discovery, static profiles) and adapters (Vellum, custom).",
+  "description": "Extensible, harness-agnostic LLM task router. Classifies messages by task type and routes to the best model — pluggable providers (OpenRouter live discovery, static profiles) and adapters (Vellum, custom).",
   "type": "module",
   "main": "./source/index.ts",
   "bin": {
@@ -33,5 +33,11 @@
     "type": "git",
     "url": "https://github.com/AnitaKirkovska/model-router"
   },
-  "vellum": {}
+  "vellum": {
+    "emoji": "🔀",
+    "displayName": "Model Router"
+  },
+  "metadata": {
+    "emoji": "🔀"
+  }
 }

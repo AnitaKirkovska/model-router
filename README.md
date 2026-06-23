@@ -1,4 +1,4 @@
-# model-router
+# 🔀 model-router
 
 Routes each conversation to the best LLM profile for the task. Classifies the incoming message, then resolves the strongest enabled profile for that category. Image-bearing turns are routed to a vision-capable model so an image never lands on a text-only one.
 
