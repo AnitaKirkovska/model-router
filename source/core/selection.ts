@@ -1,8 +1,8 @@
-// ─── Profile selection — harness-agnostic core ───────────────────────────────
-// Given the text + image state of a turn and a set of available profiles, pick
-// the strongest enabled profile for the job. No harness imports here. The
-// Vellum hook (and future Hermes / OpenClaw adapters) are thin wrappers that
-// feed this function and apply its result.
+// === Profile selection: harness-agnostic core ================================
+//    Given the text + image state of a turn and a set of available profiles, pick
+//    the strongest enabled profile for the job. No harness imports here. The
+//    Vellum hook (and future OpenClaw adapters) are thin wrappers that feed this
+//    function and apply its result.
 
 import { classify } from "./classifier.js";
 import { supportsVision, hasImage, textFromContent } from "./vision.js";
@@ -92,11 +92,10 @@ function pickProfile(
       if (byKey?.key) return byKey.key;
     }
     if (hint.text?.length) {
-      const byText = profiles.find((p) => {
-        const text = profileText(p);
-        return hint.text!.some((needle) => text.includes(needle));
-      });
-      if (byText?.key) return byText.key;
+      for (const needle of hint.text) {
+        const byText = profiles.find((p) => profileText(p).includes(needle));
+        if (byText?.key) return byText.key;
+      }
     }
   }
   return undefined;

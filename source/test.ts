@@ -131,7 +131,7 @@ console.log("\n[9] harness-neutral selection core");
 const { chooseProfileForTurn, extractTurn } = await import("./core/selection.js");
 const profiles = [
   { key: "notch-fast", label: "Speed", model: "claude-sonnet", supportsVision: true },
-  { key: "claude-4.8-high", label: "Quality-Claude", model: "claude-sonnet-research", supportsVision: true },
+  { key: "claude-4.8-high", label: "Quality-Claude", model: "claude-opus", supportsVision: true },
   { key: "claude-fable-5-high", label: "Frontier Fable", model: "fable", supportsVision: true },
   { key: "os-beta", label: "Open Speed", model: "accounts/fireworks/models/glm-5p2", supportsVision: false },
 ];
@@ -148,29 +148,17 @@ check("extractTurn: pulls text + image", turn.text === "describe" && turn.hasIma
 
 console.log("\n[10] OpenClaw adapter (to-spec)");
 {
-const { openClawModelToProfile, applySelectionToOpenClaw } = await import("./adapters/openclaw.js");
-const { chooseProfileForTurn } = await import("./core/selection.js");
-const profiles = [
-  openClawModelToProfile("anthropic", { id: "claude-sonnet-4", name: "Fast Sonnet", input: ["text", "image"] }),
-  openClawModelToProfile("openrouter", { id: "z-ai/glm-5.2", name: "GLM", input: ["text"] }),
-];
-check("openclaw: text-only catalog model is not vision", profiles[1].supportsVision === false);
-const decision = chooseProfileForTurn({ text: "what is this", hasImageTurn: true, profiles });
-const result = applySelectionToOpenClaw(decision);
-check("openclaw: before_model_resolve result sets provider", result.providerOverride === "anthropic", JSON.stringify(result));
-check("openclaw: before_model_resolve result sets model", result.modelOverride === "claude-sonnet-4", JSON.stringify(result));
-}
-
-console.log("\n[11] Hermes adapter (advisory only)");
-{
-const { hermesRecommend } = await import("./adapters/hermes.js");
-const rec = hermesRecommend({
-  text: "research the latest open agent harnesses",
-  hasImageTurn: false,
-  modelRefs: ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
-});
-check("hermes: returns advisory context", rec.advisoryContext.includes("Router Advisory") || rec.advisoryContext.includes("No specific model"), rec.advisoryContext);
-check("hermes: advisory does not claim to switch models", !rec.advisoryContext.toLowerCase().includes("switched"), rec.advisoryContext);
+  const { openClawModelToProfile, applySelectionToOpenClaw } = await import("./adapters/openclaw.js");
+  const { chooseProfileForTurn } = await import("./core/selection.js");
+  const profiles = [
+    openClawModelToProfile("anthropic", { id: "claude-sonnet-4", name: "Fast Sonnet", input: ["text", "image"] }),
+    openClawModelToProfile("openrouter", { id: "z-ai/glm-5.2", name: "GLM", input: ["text"] }),
+  ];
+  check("openclaw: text-only catalog model is not vision", profiles[1].supportsVision === false);
+  const decision = chooseProfileForTurn({ text: "what is this", hasImageTurn: true, profiles });
+  const result = applySelectionToOpenClaw(decision);
+  check("openclaw: before_model_resolve result sets provider", result.providerOverride === "anthropic", JSON.stringify(result));
+  check("openclaw: before_model_resolve result sets model", result.modelOverride === "claude-sonnet-4", JSON.stringify(result));
 }
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"}: ${pass} passed, ${fail} failed\n`);

@@ -12,9 +12,9 @@ Built with [Bun](https://bun.sh). No build step. TypeScript runs directly.
 |---------|--------|---------------|
 | **Vellum** | Shipped, tested | `pre-model-call` hook writes `ctx.modelProfile` before each turn |
 | **OpenClaw** | To-spec, pending live smoke test | `before_model_resolve` hook returns `{ providerOverride, modelOverride }` |
-| **Hermes** | Advisory only | `pre_llm_call` can inject context but **cannot switch models**; the adapter recommends, it does not route |
+| **Hermes** | Not possible | `pre_llm_call` can only inject context text, it cannot switch the active model. No plugin-writable model-selection seam exists in Hermes's current architecture. |
 
-Hermes has no plugin-writable model-selection seam. Its `pre_llm_call` hook only appends text to the user message. Real per-turn routing is architecturally impossible in Hermes's current design, so the Hermes adapter is an advisory recommender, not a router. If you need actual model switching from a Hermes plugin, the only path is `ctx.llm.complete(provider=, model=)` with trust flags in `config.yaml`: a side-channel call, not a main-agent switch.
+Hermes's `pre_llm_call` hook only appends text to the user message. There is no writable per-turn model property and no model-switch hook. Real per-turn routing is architecturally impossible in Hermes's current design. If you need actual model switching from a Hermes plugin, the only path is `ctx.llm.complete(provider=, model=)` with trust flags in `config.yaml`: a side-channel call, not a main-agent switch. That is not routing, so this plugin does not ship a Hermes adapter.
 
 ## How it works
 
@@ -28,7 +28,6 @@ message → classifier → category → chooseProfileForTurn() → profileKey �
 4. **Harness adapter** — thin wrapper: reads available profiles from the harness, calls the core, applies the result
    - `hooks/pre-model-call.ts` — Vellum adapter (writes `ctx.modelProfile`)
    - `source/adapters/openclaw.ts` — OpenClaw adapter (returns `{ providerOverride, modelOverride }` from `before_model_resolve`)
-   - `source/adapters/hermes.ts` — advisory helper (returns a suggestion string for `pre_llm_call` context injection; does not switch models)
 5. **Provider** (`StaticProvider`, `OpenRouterProvider`) — maps a category to a concrete model id (used by the CLI and the Router class, not the hook)
 
 ### Routing policy
