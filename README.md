@@ -1,6 +1,6 @@
 # model-router
 
-Extensible, harness-agnostic LLM task router. Classifies incoming messages by task type and routes to the best model via pluggable providers and adapters.
+Routes each conversation to the best LLM profile for the task. Classifies the incoming message, then resolves the strongest enabled profile for that category. Image-bearing turns are routed to a vision-capable model so an image never lands on a text-only one.
 
 Built with [Bun](https://bun.sh). No build step — TypeScript runs directly.
 
@@ -12,10 +12,28 @@ message → classifier → category → provider.resolve() → modelId → adapt
 
 1. **Classifier** — keyword + heuristic scoring → `chat | research | deep`
 2. **Provider** — maps the category to a concrete model id
-   - `StaticProvider` — fixed map (e.g. Vellum profile names)
+   - `StaticProvider` — fixed map (e.g. Vellum profile keys)
    - `OpenRouterProvider` — live model discovery; buckets 300+ models into tiers by price
 3. **Adapter** — applies the decision to a runtime
    - `VellumAdapter` — pins a sticky inference session via the `assistant` CLI
+4. **Vision check** — if the message carries an image, candidates are filtered to `supportsVision === true` before the policy runs
+
+### Routing policy
+
+| Category   | Targets by capability hint                    | Key fallbacks                                  |
+|------------|-----------------------------------------------|------------------------------------------------|
+| `chat`     | `speed` / `fast` / `haiku`, then `sonnet`     | `cost-optimized` → `balanced`                  |
+| `research` | `quality` / `glm` / `gpt` / `opus` / `fable`  | `balanced` → `auto`                            |
+| `deep`     | `frontier` / `fable` / `opus`, then `quality` | `quality-optimized` → `balanced` → `auto`      |
+| `vision`   | `opus` / `fable` / `gpt` / `gemini` / `claude` | `quality-optimized` → `claude-4.8-high` → `balanced` → `auto` |
+
+The first **enabled** match wins. Disabled profiles fall through to the next entry. If nothing matches, the hook no-ops and the platform default runs unchanged.
+
+### Image-aware routing
+
+If the latest user message includes an image block, the hook switches into vision mode before applying the normal text policy. It filters candidate profiles to `supportsVision === true` (or an equivalent `vision` / `capabilities.vision` flag), with a conservative multimodal-family heuristic fallback only when the flag is missing. Text-only models are never assumed safe by default.
+
+That means image turns will not be sent to fast/open text-only profiles that reject image input. If no enabled vision-capable profile exists, the hook no-ops and lets the platform default handle the call.
 
 ## Install
 
@@ -24,7 +42,7 @@ git clone https://github.com/AnitaKirkovska/model-router
 cd model-router
 ```
 
-Requires [Bun](https://bun.sh) >= 1.0.
+Requires [Bun](https://bun.sh) >= 1.0 and `@vellumai/plugin-api` >= 0.10.0 (for the pre-model-call hook).
 
 ## CLI
 
@@ -119,15 +137,19 @@ It classifies the latest user message (`chat | research | deep`), then resolves 
 1. **Capability hints** — match profile labels, names, or model ids by keyword (`speed`/`fast`/`sonnet`/`haiku` for chat; `frontier`/`fable`/`opus` for deep; `quality`/`glm`/`gpt` for research).
 2. **Key fallbacks** — well-known profile keys (`cost-optimized`, `balanced`, `quality-optimized`, `auto`).
 
-The first enabled match wins. The hints are written against Vellum's profile inventory (Speed / Quality / Frontier labels, GLM and Opus model ids) but fall back gracefully on any workspace: if nothing matches, the hook no-ops and the platform default runs unchanged.
+The hints are written against Vellum's profile inventory (Speed / Quality / Frontier labels, GLM and Opus model ids) but fall back gracefully on any workspace: if nothing matches, the hook no-ops and the platform default runs unchanged.
 
-### Image-aware routing
-
-If the latest user message includes an image block, the hook switches into vision mode before applying the normal text policy. It filters candidate profiles to `supportsVision === true` (or an equivalent `vision` / `capabilities.vision` flag), with a conservative multimodal-family fallback only when the flag is missing. Text-only models are never treated as safe by default.
-
-That means image turns will not be sent to fast/open text-only profiles that reject image input. If no enabled vision-capable profile exists, the hook no-ops and lets the platform default handle the call.
+If the message includes an image, the vision policy in [Image-aware routing](#image-aware-routing) takes over before the text policy runs.
 
 Only `mainAgent` calls are routed. Background / utility calls are left alone so internal tooling keeps using whatever profile the platform chose.
+
+### Vision helpers
+
+The hook's image detection and vision-capability checks live in `source/core/vision.ts` so they are testable independent of the harness:
+
+- `hasImage(content)` — true if a message's content (string or block array) carries an image block. Recognizes Anthropic `image`, OpenAI `image_url` / `input_image`, and generic `source.type` shapes.
+- `supportsVision(profile)` — prefers an explicit `supportsVision` / `vision` / `capabilities.vision` flag; falls back to a known-multimodal-family heuristic only when no flag is present. Unknown models default to **not** vision-capable, so an image is never routed to a model that might reject it.
+- `textFromContent(content)` — pulls plain text out of a string-or-block-array message, ignoring image blocks.
 
 ## Extending
 
@@ -211,15 +233,20 @@ bun test         # or:
 bun run source/test.ts
 ```
 
+44 tests. Classifier, static provider, vision helpers (image detection, flag + heuristic `supportsVision`, end-to-end vision-pool exclusion of text-only profiles), OpenRouter live discovery, tier bucketing, full router, recommender, exclude-pattern filtering, same-day sibling tie-break.
+
 Runs against the live OpenRouter API. Requires network access.
 
 ## File structure
 
 ```
+hooks/
+  pre-model-call.ts   Vellum lifecycle hook — classify + resolve + write ctx.modelProfile
 source/
   core/
     types.ts          category, tier, provider/adapter interfaces, RouteDecision
     classifier.ts     keyword + heuristic message classifier
+    vision.ts         hasImage / supportsVision / textFromContent (pure + testable)
     recommend.ts      best open/proprietary/mix picks per tier (family-reputation ranking)
     router.ts         Router class — ties provider + adapter together
   providers/
