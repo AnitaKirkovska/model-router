@@ -121,6 +121,12 @@ It classifies the latest user message (`chat | research | deep`), then resolves 
 
 The first enabled match wins. The hints are written against Vellum's profile inventory (Speed / Quality / Frontier labels, GLM and Opus model ids) but fall back gracefully on any workspace: if nothing matches, the hook no-ops and the platform default runs unchanged.
 
+### Image-aware routing
+
+If the latest user message includes an image block, the hook switches into vision mode before applying the normal text policy. It filters candidate profiles to `supportsVision === true` (or an equivalent `vision` / `capabilities.vision` flag), with a conservative multimodal-family fallback only when the flag is missing. Text-only models are never treated as safe by default.
+
+That means image turns will not be sent to fast/open text-only profiles that reject image input. If no enabled vision-capable profile exists, the hook no-ops and lets the platform default handle the call.
+
 Only `mainAgent` calls are routed. Background / utility calls are left alone so internal tooling keeps using whatever profile the platform chose.
 
 ## Extending

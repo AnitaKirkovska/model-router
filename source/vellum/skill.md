@@ -23,6 +23,8 @@ Route each conversation to the right model before responding.
 
 Profile keys are resolved in order of preference. If a profile is disabled the next fallback fires automatically. Routing happens entirely from the classifier — never from personal profile names or private workspace config.
 
+**Images:** if the message includes an image, routing switches to vision mode and only vision-capable profiles are considered, so an image is never sent to a text-only model.
+
 With the openrouter provider, any of 300+ live models can be used instead.
 
 ## Steps

@@ -34,6 +34,38 @@ check("research → claude-4.8-high", r2.modelId === "claude-4.8-high", r2.model
 const r3 = await sp.resolve("deep");
 check("deep → claude-fable-5-high", r3.modelId === "claude-fable-5-high", r3.modelId);
 
+console.log("\n[2b] vision helpers (image-aware routing)");
+{
+  const { supportsVision, hasImage, textFromContent } = await import("./core/vision.js");
+
+  // Explicit flag wins.
+  check("supportsVision: flag true", supportsVision({ key: "x", supportsVision: true }) === true);
+  check("supportsVision: flag false (open fast model)", supportsVision({ key: "glm-5-2", model: "z-ai/glm-5.2", supportsVision: false }) === false);
+  // Heuristic fallback when no flag present.
+  check("supportsVision: heuristic claude", supportsVision({ key: "c", model: "claude-opus-4-8" }) === true);
+  check("supportsVision: heuristic unknown open model is NOT assumed vision", supportsVision({ key: "g", model: "z-ai/glm-5.2" }) === false);
+
+  // Image detection across common content shapes.
+  check("hasImage: anthropic image block", hasImage([{ type: "text", text: "hi" }, { type: "image", source: { type: "base64" } }]) === true);
+  check("hasImage: image_url block", hasImage([{ type: "image_url", image_url: { url: "x" } }]) === true);
+  check("hasImage: text-only is false", hasImage([{ type: "text", text: "no pics here" }]) === false);
+  check("hasImage: plain string is false", hasImage("just text") === false);
+
+  // Text extraction ignores image blocks.
+  check("textFromContent: pulls text past image", textFromContent([{ type: "image", image: "x" }, { type: "text", text: "what is this" }]) === "what is this");
+
+  // End-to-end: an image turn must never resolve to a vision-blind profile.
+  const PROFILES = [
+    { key: "claude-4.8-high", model: "claude-opus-4-8", supportsVision: true },
+    { key: "notch-fast", model: "claude-sonnet-4-6", supportsVision: true },
+    { key: "os-beta", model: "accounts/fireworks/models/glm-5p2", supportsVision: false },
+    { key: "glm-5-2", model: "z-ai/glm-5.2", supportsVision: false },
+  ];
+  const visionPool = PROFILES.filter(supportsVision).map((p) => p.key);
+  check("vision pool excludes os-beta / glm-5-2", !visionPool.includes("os-beta") && !visionPool.includes("glm-5-2"), visionPool.join(","));
+  check("vision pool keeps the multimodal profiles", visionPool.includes("claude-4.8-high") && visionPool.includes("notch-fast"));
+}
+
 console.log("\n[3] openrouter provider (live API)");
 try {
   const op = new OpenRouterProvider();
