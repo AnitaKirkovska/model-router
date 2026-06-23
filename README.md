@@ -2,21 +2,34 @@
 
 Routes each conversation to the best LLM profile for the task. Classifies the incoming message, then resolves the strongest enabled profile for that category. Image-bearing turns are routed to a vision-capable model so an image never lands on a text-only one.
 
-Built with [Bun](https://bun.sh). No build step — TypeScript runs directly.
+The routing core is **harness-agnostic**: it has zero imports from any agent platform. Harness-specific glue lives in thin adapters that feed the core and apply its decision.
+
+Built with [Bun](https://bun.sh). No build step. TypeScript runs directly.
+
+## Harness support
+
+| Harness | Status | How it routes |
+|---------|--------|---------------|
+| **Vellum** | Shipped, tested | `pre-model-call` hook writes `ctx.modelProfile` before each turn |
+| **OpenClaw** | To-spec, pending live smoke test | `before_model_resolve` hook returns `{ providerOverride, modelOverride }` |
+| **Hermes** | Advisory only | `pre_llm_call` can inject context but **cannot switch models**; the adapter recommends, it does not route |
+
+Hermes has no plugin-writable model-selection seam. Its `pre_llm_call` hook only appends text to the user message. Real per-turn routing is architecturally impossible in Hermes's current design, so the Hermes adapter is an advisory recommender, not a router. If you need actual model switching from a Hermes plugin, the only path is `ctx.llm.complete(provider=, model=)` with trust flags in `config.yaml`: a side-channel call, not a main-agent switch.
 
 ## How it works
 
 ```
-message → classifier → category → provider.resolve() → modelId → adapter.apply()
+message → classifier → category → chooseProfileForTurn() → profileKey → harness adapter
 ```
 
-1. **Classifier** — keyword + heuristic scoring → `chat | research | deep`
-2. **Provider** — maps the category to a concrete model id
-   - `StaticProvider` — fixed map (e.g. Vellum profile keys)
-   - `OpenRouterProvider` — live model discovery; buckets 300+ models into tiers by price
-3. **Adapter** — applies the decision to a runtime
-   - `VellumAdapter` — pins a sticky inference session via the `assistant` CLI
-4. **Vision check** — if the message carries an image, candidates are filtered to `supportsVision === true` before the policy runs
+1. **Classifier** (`source/core/classifier.ts`) — keyword + heuristic scoring → `chat | research | deep`
+2. **Selection core** (`source/core/selection.ts`) — takes the turn (text + image flag) and a list of profiles, returns the best profile key and a reason. Zero harness imports.
+3. **Vision check** (`source/core/vision.ts`) — if the message carries an image, candidates are filtered to `supportsVision === true` before the text policy runs
+4. **Harness adapter** — thin wrapper: reads available profiles from the harness, calls the core, applies the result
+   - `hooks/pre-model-call.ts` — Vellum adapter (writes `ctx.modelProfile`)
+   - `source/adapters/openclaw.ts` — OpenClaw adapter (returns `{ providerOverride, modelOverride }` from `before_model_resolve`)
+   - `source/adapters/hermes.ts` — advisory helper (returns a suggestion string for `pre_llm_call` context injection; does not switch models)
+5. **Provider** (`StaticProvider`, `OpenRouterProvider`) — maps a category to a concrete model id (used by the CLI and the Router class, not the hook)
 
 ### Routing policy
 
